@@ -1,0 +1,329 @@
+{
+  "feature_columns": [
+    "gender",
+    "age",
+    "country",
+    "city",
+    "customer_segment",
+    "tenure_months",
+    "signup_channel",
+    "contract_type",
+    "monthly_logins",
+    "weekly_active_days",
+    "avg_session_time",
+    "features_used",
+    "usage_growth_rate",
+    "last_login_days_ago",
+    "monthly_fee",
+    "total_revenue",
+    "payment_method",
+    "payment_failures",
+    "discount_applied",
+    "price_increase_last_3m",
+    "support_tickets",
+    "avg_resolution_time",
+    "complaint_type",
+    "csat_score",
+    "escalations",
+    "email_open_rate",
+    "marketing_click_rate",
+    "nps_score",
+    "survey_response",
+    "referral_count"
+  ],
+  "categorical_columns": [
+    "gender",
+    "country",
+    "city",
+    "customer_segment",
+    "signup_channel",
+    "contract_type",
+    "payment_method",
+    "discount_applied",
+    "price_increase_last_3m",
+    "complaint_type",
+    "survey_response"
+  ],
+  "numeric_columns": [
+    "age",
+    "tenure_months",
+    "monthly_logins",
+    "weekly_active_days",
+    "avg_session_time",
+    "features_used",
+    "usage_growth_rate",
+    "last_login_days_ago",
+    "monthly_fee",
+    "total_revenue",
+    "payment_failures",
+    "support_tickets",
+    "avg_resolution_time",
+    "csat_score",
+    "escalations",
+    "email_open_rate",
+    "marketing_click_rate",
+    "nps_score",
+    "referral_count"
+  ],
+  "categorical_options": {
+    "gender": [
+      "Female",
+      "Male"
+    ],
+    "country": [
+      "Australia",
+      "Bangladesh",
+      "Canada",
+      "Germany",
+      "India",
+      "UK",
+      "USA"
+    ],
+    "city": [
+      "Berlin",
+      "Delhi",
+      "Dhaka",
+      "London",
+      "New York",
+      "Sydney",
+      "Toronto"
+    ],
+    "customer_segment": [
+      "Enterprise",
+      "Individual",
+      "SME"
+    ],
+    "signup_channel": [
+      "Mobile",
+      "Referral",
+      "Web"
+    ],
+    "contract_type": [
+      "Monthly",
+      "Quarterly",
+      "Yearly"
+    ],
+    "payment_method": [
+      "Bank Transfer",
+      "Card",
+      "PayPal"
+    ],
+    "discount_applied": [
+      "No",
+      "Yes"
+    ],
+    "price_increase_last_3m": [
+      "No",
+      "Yes"
+    ],
+    "complaint_type": [
+      "Billing",
+      "Service",
+      "Technical"
+    ],
+    "survey_response": [
+      "Neutral",
+      "Satisfied",
+      "Unsatisfied"
+    ]
+  },
+  "numeric_details": {
+    "age": {
+      "min": 18,
+      "max": 74,
+      "median": 46,
+      "dtype": "int64"
+    },
+    "tenure_months": {
+      "min": 1,
+      "max": 59,
+      "median": 30,
+      "dtype": "int64"
+    },
+    "monthly_logins": {
+      "min": 0,
+      "max": 54,
+      "median": 20,
+      "dtype": "int64"
+    },
+    "weekly_active_days": {
+      "min": 0,
+      "max": 7,
+      "median": 3,
+      "dtype": "int64"
+    },
+    "avg_session_time": {
+      "min": 1,
+      "max": 41.99641122063896,
+      "median": 15.161658613767617,
+      "dtype": "float64"
+    },
+    "features_used": {
+      "min": 1,
+      "max": 15,
+      "median": 5,
+      "dtype": "int64"
+    },
+    "usage_growth_rate": {
+      "min": -0.58,
+      "max": 0.54,
+      "median": 0.02,
+      "dtype": "float64"
+    },
+    "last_login_days_ago": {
+      "min": 0,
+      "max": 80,
+      "median": 6,
+      "dtype": "int64"
+    },
+    "monthly_fee": {
+      "min": 10,
+      "max": 100,
+      "median": 30,
+      "dtype": "int64"
+    },
+    "total_revenue": {
+      "min": 10,
+      "max": 5900,
+      "median": 720,
+      "dtype": "int64"
+    },
+    "payment_failures": {
+      "min": 0,
+      "max": 5,
+      "median": 0,
+      "dtype": "int64"
+    },
+    "support_tickets": {
+      "min": 0,
+      "max": 7,
+      "median": 1,
+      "dtype": "int64"
+    },
+    "avg_resolution_time": {
+      "min": 1,
+      "max": 61.821878489966416,
+      "median": 23.95044388185854,
+      "dtype": "float64"
+    },
+    "csat_score": {
+      "min": 1,
+      "max": 5,
+      "median": 4,
+      "dtype": "float64"
+    },
+    "escalations": {
+      "min": 0,
+      "max": 4,
+      "median": 0,
+      "dtype": "int64"
+    },
+    "email_open_rate": {
+      "min": 0.1,
+      "max": 0.9,
+      "median": 0.5,
+      "dtype": "float64"
+    },
+    "marketing_click_rate": {
+      "min": 0.01,
+      "max": 0.5,
+      "median": 0.25,
+      "dtype": "float64"
+    },
+    "nps_score": {
+      "min": -100,
+      "max": 100,
+      "median": 19,
+      "dtype": "int64"
+    },
+    "referral_count": {
+      "min": 0,
+      "max": 7,
+      "median": 1,
+      "dtype": "int64"
+    }
+  },
+  "default_values": {
+    "age": 46,
+    "tenure_months": 30,
+    "monthly_logins": 20,
+    "weekly_active_days": 3,
+    "avg_session_time": 15.161658613767617,
+    "features_used": 5,
+    "usage_growth_rate": 0.02,
+    "last_login_days_ago": 6,
+    "monthly_fee": 30,
+    "total_revenue": 720,
+    "payment_failures": 0,
+    "support_tickets": 1,
+    "avg_resolution_time": 23.95044388185854,
+    "csat_score": 4,
+    "escalations": 0,
+    "email_open_rate": 0.5,
+    "marketing_click_rate": 0.25,
+    "nps_score": 19,
+    "referral_count": 1,
+    "gender": "Male",
+    "country": "Bangladesh",
+    "city": "London",
+    "customer_segment": "Individual",
+    "signup_channel": "Web",
+    "contract_type": "Monthly",
+    "payment_method": "Card",
+    "discount_applied": "No",
+    "price_increase_last_3m": "No",
+    "complaint_type": "Technical",
+    "survey_response": "Satisfied"
+  },
+  "field_groups": {
+    "Profil": [
+      "gender",
+      "age",
+      "country",
+      "city",
+      "customer_segment",
+      "signup_channel",
+      "contract_type"
+    ],
+    "Usage": [
+      "monthly_logins",
+      "weekly_active_days",
+      "avg_session_time",
+      "features_used",
+      "usage_growth_rate",
+      "last_login_days_ago"
+    ],
+    "Finance": [
+      "monthly_fee",
+      "total_revenue",
+      "payment_method",
+      "payment_failures",
+      "discount_applied",
+      "price_increase_last_3m"
+    ],
+    "Support": [
+      "support_tickets",
+      "avg_resolution_time",
+      "complaint_type",
+      "csat_score",
+      "escalations"
+    ],
+    "Marketing": [
+      "email_open_rate",
+      "marketing_click_rate",
+      "nps_score",
+      "survey_response",
+      "referral_count",
+      "tenure_months"
+    ]
+  },
+  "dataset_summary": {
+    "rows": 10000,
+    "columns": 32,
+    "target_distribution": {
+      "0": 8979,
+      "1": 1021
+    },
+    "missing_values_total": 2045
+  }
+}

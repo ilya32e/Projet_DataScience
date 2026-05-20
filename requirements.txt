@@ -1,0 +1,30 @@
+pandas
+numpy
+scikit-learn
+imbalanced-learn
+joblib
+matplotlib
+seaborn
+plotly
+streamlit
+fastapi
+uvicorn
+requests
+kagglehub
+
+# Explicabilité et Interpretabilité
+shap>=0.14.0
+
+# Optimisation d'hyperparamètres
+optuna>=3.0.0
+
+# Monitoring et Data Quality
+evidently>=0.4.0
+
+# Statistiques avancées
+scipy>=1.12.0
+
+# Utilities
+tqdm>=4.65.0
+pydantic>=2.0.0
+
