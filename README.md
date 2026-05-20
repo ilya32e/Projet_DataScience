@@ -1,6 +1,6 @@
 # Système Multi-Modèles pour la Rétention Client
 
-**Projet Data Science — M1 Data Engineering & AI — EFREI Paris 2025-2026**  
+**Projet Data Science — M1 Data Engineering & AI — EFREI Paris 2025-2026**
 Étudiants : Mouradi Iliasse & Kosutic Alexandre | Enseignante : Sarah Malaeb
 
 ---
@@ -21,11 +21,11 @@ Le dataset vient de Kaggle : [Customer Churn Prediction Business Dataset](https:
 docker-compose up --build
 ```
 
-| Service | URL |
-|---|---|
-| Dashboard Streamlit | http://localhost:8501 |
-| API FastAPI | http://localhost:8000 |
-| Documentation API | http://localhost:8000/docs |
+| Service             | URL                        |
+| ------------------- | -------------------------- |
+| Dashboard Streamlit | http://localhost:8501      |
+| API FastAPI         | http://localhost:8000      |
+| Documentation API   | http://localhost:8000/docs |
 
 ### En local
 
@@ -33,7 +33,7 @@ docker-compose up --build
 pip install -r requirements.txt
 python -m retention_ai.train         # entraîne les 4 modèles
 streamlit run app/streamlit_app.py   # lance le dashboard
-uvicorn api.main:app --reload        # lance l'API (optionnel)
+uvicorn api.main:app --reload        # lance l'API
 ```
 
 > Il faut lancer l'entraînement une première fois avant le dashboard — il génère les artefacts nécessaires (`artifacts/`).
@@ -44,23 +44,24 @@ uvicorn api.main:app --reload        # lance l'API (optionnel)
 
 ### 4 modèles comparés
 
-| Modèle | Famille | Rôle dans le projet |
-|---|---|---|
-| Logistic Regression | Baseline | Modèle simple et interprétable |
-| Random Forest | Ensemble | Capture les non-linéarités |
-| Gradient Boosting | Boosting | Meilleure performance globale |
-| MLP Classifier | Deep Learning | Exigence du sujet |
+| Modèle             | Famille       | Rôle dans le projet             |
+| ------------------- | ------------- | -------------------------------- |
+| Logistic Regression | Baseline      | Modèle simple et interprétable |
+| Random Forest       | Ensemble      | Capture les non-linéarités     |
+| Gradient Boosting   | Boosting      | Meilleure performance globale    |
+| MLP Classifier      | Deep Learning | Exigence du sujet                |
 
 Le modèle final retenu est le **Gradient Boosting** (PR-AUC test = 0.306, Recall = 0.809). Le MLP est intentionnellement moins performant — ça démontre que le deep learning n'est pas toujours supérieur sur des données tabulaires.
 
 ### Dashboard décisionnel (Streamlit)
 
 Trois onglets :
+
 - **Pilotage** : KPI globaux, comparaison des modèles, importance des variables
 - **Portefeuille** : clients les plus à risque, revenu exposé
 - **Simulation** : saisir le profil d'un client et obtenir sa probabilité de churn en temps réel
 
-### API REST (FastAPI) — optionnelle
+### API REST (FastAPI)
 
 ```
 GET  /health       → état du service + modèle chargé
