@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-21T08:02:11.883265+00:00",
+  "generated_at_utc": "2026-05-21T12:16:25.724366+00:00",
   "dataset_rows": 10000,
   "dataset_columns": 32,
   "train_rows": 8000,
@@ -7,22 +7,29 @@
   "positive_class_rate": 0.1021,
   "final_model_name": "gradient_boosting",
   "final_model_label": "Gradient Boosting",
-  "final_model_threshold": 0.4467897018091762,
+  "final_model_threshold": 0.6606178231779254,
+  "final_model_best_params": {
+    "model__subsample": "0.9",
+    "model__n_estimators": "150",
+    "model__min_samples_leaf": "4",
+    "model__max_depth": "3",
+    "model__learning_rate": "0.01"
+  },
   "final_model_metrics": {
-    "accuracy": 0.7295,
-    "precision": 0.24737631184407796,
-    "recall": 0.8088235294117647,
-    "f1": 0.3788748564867968,
-    "roc_auc": 0.8059140137123891,
-    "pr_auc": 0.30566423460337955,
-    "true_negative": 1294,
-    "false_positive": 502,
-    "false_negative": 39,
-    "true_positive": 165
+    "accuracy": 0.8205,
+    "precision": 0.2876712328767123,
+    "recall": 0.5147058823529411,
+    "f1": 0.36906854130052724,
+    "roc_auc": 0.8030972968251889,
+    "pr_auc": 0.31772416667988834,
+    "true_negative": 1536,
+    "false_positive": 260,
+    "false_negative": 99,
+    "true_positive": 105
   },
   "portfolio_risk_summary": {
-    "predicted_high_risk_customers": 3237,
-    "expected_monthly_loss_total": 116440.67880983584,
-    "expected_revenue_at_risk_total": 3173407.7415260077
+    "predicted_high_risk_customers": 1762,
+    "expected_monthly_loss_total": 143645.0498229007,
+    "expected_revenue_at_risk_total": 4111713.6843972793
   }
 }

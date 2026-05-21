@@ -39,6 +39,7 @@ from retention_ai.modeling import (
     get_cv_results,
     get_model_specs,
     select_final_model,
+    tune_pipeline,
 )
 from retention_ai.reporting import (
     plot_class_balance,
@@ -119,8 +120,39 @@ def train_all_models() -> dict[str, str]:
     results_df = pd.DataFrame(records).sort_values(by="test_pr_auc", ascending=False)
     results_df.to_csv(LEADERBOARD_PATH, index=False)
 
+    # ── Tuning du meilleur modèle avec RandomizedSearch ───────────────────────
     best_row = select_final_model(results_df)
-    final_bundle = trained_bundles[str(best_row["name"])]
+    best_spec = next(s for s in get_model_specs() if s.name == str(best_row["name"]))
+    print(f"RandomizedSearch sur {best_spec.label} (n_iter=20, cv=3)...")
+    best_params = tune_pipeline(best_spec, X_train, y_train, n_iter=20)
+
+    # Seuil optimal avec les meilleurs hyperparamètres (fit sur X_fit → threshold sur X_valid)
+    tuned_threshold_pipeline = build_pipeline(best_spec)
+    if best_params:
+        tuned_threshold_pipeline.set_params(**best_params)
+    tuned_threshold_pipeline.fit(X_fit, y_fit)
+    tuned_threshold = choose_threshold(
+        y_valid, tuned_threshold_pipeline.predict_proba(X_valid)[:, 1]
+    )
+
+    # Pipeline final avec les meilleurs hyperparamètres (fit sur X_train complet)
+    tuned_final_pipeline = build_pipeline(best_spec)
+    if best_params:
+        tuned_final_pipeline.set_params(**best_params)
+    tuned_final_pipeline.fit(X_train, y_train)
+    tuned_test_metrics = evaluate_classifier(
+        y_test, tuned_final_pipeline.predict_proba(X_test)[:, 1], tuned_threshold
+    )
+
+    final_bundle = {
+        "name": best_spec.name,
+        "label": best_spec.label,
+        "family": best_spec.family,
+        "threshold": tuned_threshold,
+        "pipeline": tuned_final_pipeline,
+        "metrics": tuned_test_metrics,
+        "best_params": best_params,
+    }
     joblib.dump(final_bundle, FINAL_MODEL_BUNDLE_PATH)
 
     importance = permutation_importance(
@@ -181,6 +213,7 @@ def train_all_models() -> dict[str, str]:
         "final_model_name": final_bundle["name"],
         "final_model_label": final_bundle["label"],
         "final_model_threshold": float(final_bundle["threshold"]),
+        "final_model_best_params": {k: str(v) for k, v in final_bundle.get("best_params", {}).items()},
         "final_model_metrics": final_bundle["metrics"],
         "portfolio_risk_summary": {
             "predicted_high_risk_customers": int(scored_customers["predicted_churn"].sum()),

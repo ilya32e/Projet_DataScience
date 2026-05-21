@@ -20,7 +20,7 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
-from sklearn.model_selection import StratifiedKFold, cross_validate
+from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, cross_validate
 from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
@@ -195,3 +195,51 @@ def select_final_model(results_df):
         ascending=False,
     )
     return ordered.iloc[0]
+
+
+def get_param_distributions() -> dict[str, dict]:
+    return {
+        "logistic_regression": {
+            "model__C": [0.001, 0.01, 0.1, 1.0, 10.0, 100.0],
+            "model__solver": ["liblinear", "lbfgs"],
+        },
+        "random_forest": {
+            "model__n_estimators": [200, 300, 400, 500],
+            "model__max_depth": [None, 10, 20, 30],
+            "model__min_samples_leaf": [1, 2, 4],
+            "model__max_features": ["sqrt", "log2"],
+        },
+        "gradient_boosting": {
+            "model__n_estimators": [100, 150, 200, 250, 300],
+            "model__learning_rate": [0.01, 0.05, 0.1, 0.15],
+            "model__max_depth": [3, 4, 5, 6],
+            "model__subsample": [0.7, 0.8, 0.85, 0.9, 1.0],
+            "model__min_samples_leaf": [1, 2, 4],
+        },
+        "mlp_classifier": {
+            "model__hidden_layer_sizes": [(64, 32), (128, 64), (128, 64, 32), (256, 128, 64)],
+            "model__alpha": [1e-4, 5e-4, 1e-3, 5e-3],
+            "model__learning_rate_init": [5e-4, 8e-4, 1e-3, 2e-3],
+        },
+    }
+
+
+def tune_pipeline(spec: ModelSpec, X_train, y_train, n_iter: int = 20) -> dict:
+    """RandomizedSearchCV sur le meilleur modèle. Retourne les meilleurs hyperparamètres."""
+    param_distributions = get_param_distributions().get(spec.name, {})
+    if not param_distributions:
+        return {}
+    splitter = StratifiedKFold(n_splits=3, shuffle=True, random_state=RANDOM_STATE)
+    search = RandomizedSearchCV(
+        build_pipeline(spec),
+        param_distributions=param_distributions,
+        n_iter=n_iter,
+        scoring="average_precision",
+        cv=splitter,
+        n_jobs=1,
+        random_state=RANDOM_STATE,
+        refit=False,
+        verbose=0,
+    )
+    search.fit(X_train, y_train)
+    return search.best_params_

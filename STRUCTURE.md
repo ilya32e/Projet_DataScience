@@ -55,7 +55,7 @@ retention_ai/
 │       • revenue_per_month      (revenu cumulé / tenure)
 │       • payment_risk_index     (payment_failures × monthly_fee)
 │
-├── modeling.py                    ← 4 modèles de classification churn
+├── modeling.py                    ← 4 modèles de classification churn + optimisation RandomizedSearch
 │   └── Construit les 4 pipelines sklearn (preprocessing + oversampling + classifieur) :
 │       • LogisticRegression    (baseline interprétable)
 │       • RandomForestClassifier (ensemble arbres)
@@ -63,6 +63,8 @@ retention_ai/
 │       • MLPClassifier         (deep learning)
 │       Inclut : validation croisée StratifiedKFold, optimisation du seuil,
 │       permutation importance, sélection automatique du meilleur modèle
+│       + tune_pipeline() : RandomizedSearchCV (20 iter, cv=3, scoring=PR-AUC)
+│         appliqué au meilleur modèle après sélection → best_params sauvegardés
 │
 ├── extra_tasks.py                 ← 4 tâches prédictives secondaires
 │   └── Chaque tâche utilise 4 modèles + CV + séparation train/test :
@@ -82,9 +84,12 @@ retention_ai/
 ├── train.py                       ← Script d'entraînement complet (point d'entrée)
 │   └── Orchestre l'ensemble du pipeline :
 │       1. chargement → features → 4 modèles churn → sélection finale
-│       2. scoring du portefeuille (churn_probability pour tous les clients)
-│       3. run_all_secondary() → 4 tâches secondaires → sauvegarde CSV
+│       2. RandomizedSearch sur le meilleur modèle (20 iter × 3 folds)
+│          → meilleurs hyperparamètres → seuil re-optimisé → modèle final
+│       3. scoring du portefeuille (churn_probability pour tous les clients)
+│       4. run_all_secondary() → 4 tâches secondaires → sauvegarde CSV
 │       Sortie : artefacts churn + artifacts/metrics/secondary/*.csv
+│               + best_params dans training_overview.json
 │
 ├── inference.py                   ← Inférence en production
 │   └── Charge le modèle sérialisé et expose predict_record()

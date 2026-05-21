@@ -51,7 +51,7 @@ uvicorn api.main:app --reload        # lance l'API
 | **Gradient Boosting** | **Boosting** | **0.306** | **0.809** | 0.379 |
 | MLP Classifier      | Deep Learning | 0.195  | 0.456  | 0.295 |
 
-Modèle final retenu : **Gradient Boosting** (meilleure PR-AUC test et CV). Seuil opérationnel : 0.447.
+Modèle final retenu : **Gradient Boosting**, puis optimisé par **RandomizedSearch** (20 itérations, CV=3 folds, critère PR-AUC). Hyperparamètres retenus : `learning_rate=0.01`, `n_estimators=150`, `max_depth=3`, `subsample=0.9`, `min_samples_leaf=4`. Seuil opérationnel : **0.661**. PR-AUC finale : **0.318**.
 
 ### Tâches secondaires
 
@@ -95,7 +95,7 @@ POST /predict      → prédiction churn pour un client (JSON in → JSON out)
 │   ├── config.py       # chemins et constantes centralisés
 │   ├── data.py         # chargement et schéma
 │   ├── features.py     # feature engineering (engagement_score, payment_risk_index…)
-│   ├── modeling.py     # 4 modèles de classification churn
+│   ├── modeling.py     # 4 modèles de classification churn + RandomizedSearch (tune_pipeline)
 │   ├── extra_tasks.py  # 4 tâches secondaires (3 régressions + 1 classification)
 │   ├── train.py        # pipeline d'entraînement complet
 │   ├── inference.py    # inférence en production
@@ -115,8 +115,8 @@ POST /predict      → prédiction churn pour un client (JSON in → JSON out)
 ## Résultats principaux
 
 - Taux de churn dans le dataset : **10.21 %** (classes déséquilibrées → PR-AUC et Recall privilégiés)
-- Le Gradient Boosting détecte **80.9 %** des churners réels (recall test)
-- Sur 10 000 clients scorés : **3 237 clients à risque**, perte mensuelle estimée à **116 441 €**
+- Le Gradient Boosting (après RandomizedSearch) atteint une **PR-AUC de 0.318**, Precision 0.288, Recall 0.515
+- Hyperparamètres optimaux : `learning_rate=0.01`, `n_estimators=150`, `max_depth=3`, `subsample=0.9`
 - Variables les plus influentes : `tenure_months`, `csat_score`, `monthly_logins`, `payment_failures`
 - Le CLV (total_revenue) est quasi-déterministe depuis les features (R² = 0.9999) — confirmé par la structure du dataset
 - L'engagement comportemental n'est pas prédictible depuis le profil client (R² ≈ 0)
@@ -126,6 +126,7 @@ POST /predict      → prédiction churn pour un client (JSON in → JSON out)
 ## Limites identifiées
 
 - **Incohérence CV/test** : le CV utilise le seuil par défaut (0.5), pas le seuil optimisé → scores CV et test non directement comparables
-- **Signal faible** : PR-AUC = 0.306 indique une limite du dataset synthétique, pas du modèle
+- **Signal modéré** : PR-AUC = 0.318 (après tuning) indique une limite structurelle du dataset synthétique, pas du modèle
+- **Tradeoff recall/précision** : le RandomizedSearch maximise la PR-AUC, ce qui monte le seuil (0.661) et réduit le recall (0.515 vs 0.809 avant tuning)
 - **Pas d'ablation** : impact réel de chaque feature dérivée non quantifié
 - **Dataset synthétique** : les performances ne garantissent pas un transfert à des données réelles
