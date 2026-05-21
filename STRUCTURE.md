@@ -20,7 +20,7 @@ Projet_DataScience/
 ├── 📋 requirements.txt       ← Dépendances Python
 ├── 🔧 Makefile               ← Commandes raccourcies
 │
-├── 📄 rapport_retention_client.tex / .pdf   ← Rapport académique LaTeX
+├── 📄 rapport_retention_client.pdf          ← Rapport académique
 ├── 📊 presentation_retention_client.pptx   ← Présentation PowerPoint
 ├── 📝 script_presentation_retention_client.docx ← Script de présentation
 ├── 📘 README.md              ← Documentation principale du projet
@@ -100,29 +100,25 @@ retention_ai/
 │       class_balance, contract_churn_rate, model_comparison,
 │       final_confusion_matrix, feature_importance
 │
-├── calibration.py                 ← Calibration probabiliste (module avancé)
-│   └── Wrapper sklearn CalibratedClassifierCV (Platt / Isotonic)
-│       + optimisation du seuil par courbe précision-rappel
-│       [Non utilisé dans le pipeline principal — prévu pour v2]
+├── explainability.py              ← Wrapper SHAP (module d'extension)
+│   └── Unifie TreeExplainer (arbres) et KernelExplainer (modèles génériques)
+│       Expose : explain(), feature_importance(), summary_plot(), force_plot()
+│       Correspondance rapport : section 19.2 "Explicabilité individuelle par SHAP"
+│       [Prêt à l'emploi — non branché sur le pipeline principal]
 │
-├── diagnostics.py                 ← Diagnostics du modèle (module avancé)
-│   └── Outils d'analyse : biais train/test, courbes ROC/PR,
-│       détection de data leakage, rapport de classification complet
-│       [Non utilisé dans le pipeline principal — prévu pour v2]
+├── calibration.py                 ← Calibration probabiliste (module d'extension)
+│   └── ProbabilityCalibrator : CalibratedClassifierCV (Platt/Isotonic)
+│       + métriques ECE, MCE, Brier Score, Log Loss
+│       ThresholdOptimizer : seuil optimal par F1 ou Youden's J
+│       Correspondance rapport : section 19.3 "Calibration probabiliste absente"
+│       [Prêt à l'emploi — non branché sur le pipeline principal]
 │
-├── explainability.py              ← Explicabilité SHAP (module avancé)
-│   └── Wrapper TreeExplainer / KernelExplainer
-│       pour générer des force plots et dependence plots
-│       [Non utilisé dans le pipeline principal — prévu pour v2]
-│
-├── drift_monitor.py               ← Monitoring de data drift (module avancé)
-│   └── Tests KS (numérique), Chi² (catégoriel), KL divergence
-│       pour détecter une dérive des données en production
-│       [Non utilisé dans le pipeline principal — prévu pour v2]
-│
-└── hyperparameter_optimization.py ← Optimisation Optuna (module avancé)
-    └── Recherche bayésienne d'hyperparamètres multi-objectif via Optuna
-        [Non utilisé dans le pipeline principal — prévu pour v2]
+└── drift_monitor.py               ← Détection de drift (module d'extension)
+    └── DataDriftDetector  : test KS (numérique) + Chi² (catégoriel)
+        ModelDriftMonitor  : alerte si dégradation métrique > seuil %
+        TemporalValidator  : split temporel strict + walk-forward validation
+        Correspondance rapport : section 19.6 "Absence de validation temporelle"
+        [Prêt à l'emploi — non branché sur le pipeline principal]
 ```
 
 ---
@@ -270,7 +266,7 @@ docker-compose.yml                 ← Orchestre les deux conteneurs
 
 requirements.txt                   ← Toutes les dépendances Python du projet
     scikit-learn, imbalanced-learn, pandas, numpy, matplotlib, seaborn,
-    streamlit, fastapi, uvicorn, joblib, plotly, optuna, shap…
+    streamlit, fastapi, uvicorn, joblib, plotly, shap, scipy, evidently…
 
 Makefile                           ← Raccourcis de commandes
     make train     → lance le pipeline d'entraînement complet
@@ -286,8 +282,7 @@ Makefile                           ← Raccourcis de commandes
 
 ```
 README.md                          ← Documentation principale du projet
-rapport_retention_client.tex       ← Rapport académique complet (LaTeX)
-rapport_retention_client.pdf       ← Version compilée
+rapport_retention_client.pdf       ← Rapport académique complet
 presentation_retention_client.pptx ← Présentation PowerPoint
 script_presentation_retention_client.docx ← Script de présentation
 STRUCTURE.md                       ← Ce fichier
@@ -333,5 +328,5 @@ retention_ai/extra_tasks.py   ← 4 tâches secondaires (dépend de scored_custo
         ▼                       ▼
 app/streamlit_app.py      api/main.py
 (port 8501)               (port 8000)
-4 onglets dashboard       POST /predict → inference.py
+5 onglets dashboard       POST /predict → inference.py
 ```
