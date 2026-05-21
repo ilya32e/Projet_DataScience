@@ -112,7 +112,8 @@ POST /predict      → prédiction churn pour un client (JSON in → JSON out)
 ├── data/raw/                # dataset CSV
 ├── docker-compose.yml
 ├── Dockerfile
-└── rapport_retention_client.pdf
+├── rapport_retention_client.tex / .pdf
+└── script_presentation.md
 ```
 
 ---

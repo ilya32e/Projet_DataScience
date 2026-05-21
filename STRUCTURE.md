@@ -20,7 +20,7 @@ Projet_DataScience/
 ├── 📋 requirements.txt       ← Dépendances Python
 ├── 🔧 Makefile               ← Commandes raccourcies
 │
-├── 📄 rapport_retention_client.pdf          ← Rapport académique
+├── 📄 rapport_retention_client.tex / .pdf   ← Rapport académique LaTeX
 ├── 📊 presentation_retention_client.pptx   ← Présentation PowerPoint
 ├── 📝 script_presentation_retention_client.docx ← Script de présentation
 ├── 📘 README.md              ← Documentation principale du projet
@@ -282,7 +282,8 @@ Makefile                           ← Raccourcis de commandes
 
 ```
 README.md                          ← Documentation principale du projet
-rapport_retention_client.pdf       ← Rapport académique complet
+rapport_retention_client.tex       ← Rapport académique complet (LaTeX)
+rapport_retention_client.pdf       ← Version compilée
 presentation_retention_client.pptx ← Présentation PowerPoint
 script_presentation_retention_client.docx ← Script de présentation
 STRUCTURE.md                       ← Ce fichier
