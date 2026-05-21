@@ -15,9 +15,6 @@ kagglehub
 # Explicabilité et Interpretabilité
 shap>=0.14.0
 
-# Optimisation d'hyperparamètres
-optuna>=3.0.0
-
 # Monitoring et Data Quality
 evidently>=0.4.0
 

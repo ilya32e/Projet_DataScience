@@ -78,6 +78,8 @@ Cinq onglets :
 - **Tâches secondaires** : 4 sous-onglets, un par tâche — résultat clé, explication, comparaison des 4 modèles, feature importance
 - **Analyse** : heatmap de corrélation (Pearson) · SHAP global (TreeExplainer, 300 clients test) · analyse des erreurs (distribution des probabilités par classe réelle, faux négatifs, faux positifs, TP/FP/FN/TN)
 
+---
+
 ### API REST (FastAPI)
 
 ```
@@ -91,24 +93,96 @@ POST /predict      → prédiction churn pour un client (JSON in → JSON out)
 ## Structure du projet
 
 ```
-├── retention_ai/       # logique métier (données, features, modèles, tâches secondaires, inférence)
-│   ├── config.py       # chemins et constantes centralisés
-│   ├── data.py         # chargement et schéma
-│   ├── features.py     # feature engineering (engagement_score, payment_risk_index…)
-│   ├── modeling.py     # 4 modèles de classification churn + RandomizedSearch (tune_pipeline)
-│   ├── extra_tasks.py  # 4 tâches secondaires (3 régressions + 1 classification)
-│   ├── train.py        # pipeline d'entraînement complet
-│   ├── inference.py    # inférence en production
-│   └── reporting.py    # génération des figures
-├── app/                # dashboard Streamlit (4 onglets)
-├── api/                # API FastAPI
-├── artifacts/          # modèles entraînés, métriques, figures
-│   └── metrics/secondary/  # résultats des tâches secondaires (CSV)
-├── data/raw/           # dataset CSV
+├── retention_ai/            # logique métier
+│   ├── config.py            # chemins et constantes centralisés
+│   ├── data.py              # chargement et schéma du dataset
+│   ├── features.py          # feature engineering (engagement_score, payment_risk_index…)
+│   ├── modeling.py          # 4 modèles de classification churn + RandomizedSearch
+│   ├── extra_tasks.py       # 4 tâches secondaires (3 régressions + 1 classification)
+│   ├── train.py             # pipeline d'entraînement complet
+│   ├── inference.py         # inférence en production
+│   ├── reporting.py         # génération des figures
+│   ├── explainability.py    # wrapper SHAP (TreeExplainer / KernelExplainer)
+│   ├── calibration.py       # calibration probabiliste (Platt/isotonique) + optimisation du seuil
+│   └── drift_monitor.py     # détection de drift (KS, Chi2) + validation temporelle walk-forward
+├── app/                     # dashboard Streamlit (5 onglets)
+├── api/                     # API FastAPI
+├── artifacts/               # modèles entraînés, métriques, figures
+│   └── metrics/secondary/   # résultats des tâches secondaires (CSV)
+├── data/raw/                # dataset CSV
 ├── docker-compose.yml
 ├── Dockerfile
-└── rapport_retention_client.tex / .pdf
+└── rapport_retention_client.pdf
 ```
+
+---
+
+## Modules d'extension (`retention_ai/`)
+
+Ces trois modules sont implémentés et prêts à l'emploi mais non activés dans le pipeline principal. Ils correspondent aux axes d'amélioration documentés dans le rapport.
+
+### `explainability.py` — Wrapper SHAP
+
+Fournit `SHAPExplainer`, une classe unifiant `TreeExplainer` (arbres) et `KernelExplainer` (modèles génériques) avec détection automatique.
+
+```python
+from retention_ai.explainability import SHAPExplainer
+
+explainer = SHAPExplainer(model)          # TreeExplainer auto-détecté
+shap_values = explainer.explain(X_test)   # calcul des SHAP values
+explainer.summary_plot()                  # bar chart global
+explainer.force_plot(instance_index=0)    # explication individuelle
+df = explainer.feature_importance()       # DataFrame trié par importance
+```
+
+> Utilisé indirectement dans le dashboard (onglet Simulation) via `shap` directement. Ce wrapper centralise la logique pour une future refactorisation.
+
+---
+
+### `calibration.py` — Calibration probabiliste
+
+Adresse la limite documentée dans le rapport : *"les probabilités prédites ne sont pas calibrées"*. Contient deux classes :
+
+- **`ProbabilityCalibrator`** — enveloppe `CalibratedClassifierCV` (méthode Platt `sigmoid` ou `isotonic`), calcule ECE, MCE, Brier Score et Log Loss.
+- **`ThresholdOptimizer`** — optimise le seuil de décision selon F1 ou Youden's J.
+
+```python
+from retention_ai.calibration import ProbabilityCalibrator, ThresholdOptimizer
+
+cal = ProbabilityCalibrator(method="sigmoid")
+cal.fit(pipeline, X_train, y_train)
+metrics = cal.evaluate_calibration(y_test, cal.predict_proba(X_test))
+# → {"ece": ..., "brier_score": ..., "log_loss": ...}
+
+opt = ThresholdOptimizer(metric="f1")
+best_threshold = opt.optimize(y_val, y_proba_val)
+```
+
+> Non intégré au pipeline principal : activer la calibration modifie le seuil opérationnel et nécessite une réévaluation complète des métriques.
+
+---
+
+### `drift_monitor.py` — Détection de drift & validation temporelle
+
+Adresse la limite documentée : *"absence de validation temporelle et de drift monitoring"*. Trois classes :
+
+- **`DataDriftDetector`** — test KS (numérique) et Chi2 (catégoriel) pour détecter un changement de distribution entre baseline et données courantes.
+- **`ModelDriftMonitor`** — alerte si une métrique (AUC, F1, Recall…) se dégrade de plus de X% par rapport au baseline.
+- **`TemporalValidator`** — split temporel strict + walk-forward validation (fenêtre glissante).
+
+```python
+from retention_ai.drift_monitor import DataDriftDetector, ModelDriftMonitor
+
+detector = DataDriftDetector()
+result = detector.detect_drift_numeric(baseline["monthly_fee"], new_data["monthly_fee"])
+# → {"drift_detected": True, "p_value": 0.003, ...}
+
+monitor = ModelDriftMonitor(baseline_metrics={"f1": 0.379, "auc_roc": 0.796})
+drift = monitor.detect_performance_drift(current_metrics, threshold_pct=10.0)
+# → {"drift_detected": False, "degraded_metrics": {}}
+```
+
+> Pour activer en production : scorer périodiquement un batch de nouveaux clients et appeler `detect_performance_drift` avec les métriques observées.
 
 ---
 
