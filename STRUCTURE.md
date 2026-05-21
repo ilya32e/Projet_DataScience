@@ -126,7 +126,7 @@ retention_ai/
 
 ```
 app/
-└── streamlit_app.py               ← Application Streamlit complète (4 onglets)
+└── streamlit_app.py               ← Application Streamlit complète (5 onglets)
     │
     ├── Onglet Pilotage
     │   └── KPI globaux (taux de churn, revenu exposé, nb clients à risque)
@@ -140,14 +140,28 @@ app/
     ├── Onglet Simulation
     │   └── Formulaire de saisie d'un profil client (32 champs groupés)
     │       + bouton "Lancer la prédiction" → appel inference.py ou API REST
-    │       → affichage jauge de probabilité, niveau de risque, action recommandée
+    │       → jauge de probabilité, niveau de risque, action recommandée
+    │       → explication SHAP locale : top 10 variables (rouge = vers churn, bleu = vers rétention)
     │
-    └── Onglet Tâches secondaires
-        └── Selectbox pour choisir parmi les 4 tâches secondaires :
-            • Revenu à Risque : bar chart R²/CV R² + tableau métriques + feature importance
-            • CLV             : idem
-            • Score d'Engagement (Régression) : idem
-            • Catégorie d'Engagement (Classification) : bar chart F1/CV F1 + tableau
+    ├── Onglet Tâches secondaires
+    │   └── 4 sous-onglets (un par tâche) :
+    │       • bandeau type/cible/features + 3 cartes métriques (R² ou F1)
+    │       • notes Résultat / Attention / Conclusion
+    │       • bloc "Comprendre ces résultats" (explication par modèle)
+    │       • comparaison 4 modèles (bar chart + tableau) + feature importance
+    │
+    └── Onglet Analyse
+        ├── Corrélation des variables
+        │   └── Heatmap Pearson (toutes les features numériques)
+        │       + top 10 corrélations avec le churn
+        ├── SHAP — Importance globale
+        │   └── Bar chart TreeExplainer sur 300 clients test
+        │       + tableau des 15 features les plus influentes (mise en cache)
+        └── Analyse des erreurs
+            └── Distribution des probabilités par classe réelle (churner vs non-churner)
+                + table faux négatifs (churners manqués, triés par revenu)
+                + table faux positifs (fausses alarmes)
+                + compteurs TP / FP / FN / TN
 ```
 
 ---

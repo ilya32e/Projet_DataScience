@@ -70,12 +70,13 @@ Quatre tâches additionnelles entraînées avec 4 modèles chacune (Ridge/LogReg
 
 ## Dashboard décisionnel (Streamlit)
 
-Quatre onglets :
+Cinq onglets :
 
 - **Pilotage** : KPI globaux, comparaison des 4 modèles churn, importance des variables
 - **Portefeuille** : clients les plus à risque, scatter revenu vs probabilité de churn
-- **Simulation** : saisir le profil d'un client et obtenir sa probabilité de churn en temps réel
-- **Tâches secondaires** : comparaison des 4 modèles pour chaque tâche additionnelle + feature importance
+- **Simulation** : saisir le profil d'un client → prédiction en temps réel + explication SHAP locale (top variables qui poussent vers / contre le churn pour ce client spécifique)
+- **Tâches secondaires** : 4 sous-onglets, un par tâche — résultat clé, explication, comparaison des 4 modèles, feature importance
+- **Analyse** : heatmap de corrélation (Pearson) · SHAP global (TreeExplainer, 300 clients test) · analyse des erreurs (distribution des probabilités par classe réelle, faux négatifs, faux positifs, TP/FP/FN/TN)
 
 ### API REST (FastAPI)
 
