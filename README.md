@@ -7,9 +7,9 @@
 
 ## Présentation
 
-Ce projet a pour objectif de prédire le churn (résiliation) de clients dans un contexte SaaS/abonnement, et d'estimer le revenu financier exposé. On compare quatre modèles de machine learning, on construit un dashboard interactif utilisable par un responsable marketing ou CRM, et on expose une API REST optionnelle pour l'inférence.
+Ce projet construit un système intelligent de rétention client sur un dataset SaaS/abonnement de 10 000 clients. Il couvre cinq tâches prédictives distinctes (une classification principale + quatre tâches secondaires), un dashboard interactif et une API REST.
 
-Le dataset vient de Kaggle : [Customer Churn Prediction Business Dataset](https://www.kaggle.com/datasets/miadul/customer-churn-prediction-business-dataset) — 10 000 clients, 32 variables, cible binaire `churn`.
+Dataset : [Customer Churn Prediction Business Dataset](https://www.kaggle.com/datasets/miadul/customer-churn-prediction-business-dataset) — 10 000 clients, 32 variables.
 
 ---
 
@@ -31,42 +31,58 @@ docker-compose up --build
 
 ```bash
 pip install -r requirements.txt
-python -m retention_ai.train         # entraîne les 4 modèles
+python -m retention_ai.train         # entraîne tous les modèles (churn + tâches secondaires)
 streamlit run app/streamlit_app.py   # lance le dashboard
 uvicorn api.main:app --reload        # lance l'API
 ```
 
-> Il faut lancer l'entraînement une première fois avant le dashboard — il génère les artefacts nécessaires (`artifacts/`).
+> L'entraînement doit être lancé avant le dashboard — il génère les artefacts dans `artifacts/`.
 
 ---
 
-## Ce qu'on a fait
+## Tâches prédictives
 
-### 4 modèles comparés
+### Tâche principale : Prédiction du Churn (Classification binaire)
 
-| Modèle             | Famille       | Rôle dans le projet             |
-| ------------------- | ------------- | -------------------------------- |
-| Logistic Regression | Baseline      | Modèle simple et interprétable |
-| Random Forest       | Ensemble      | Capture les non-linéarités     |
-| Gradient Boosting   | Boosting      | Meilleure performance globale    |
-| MLP Classifier      | Deep Learning | Exigence du sujet                |
+| Modèle             | Famille       | PR-AUC | Recall | F1    |
+| ------------------- | ------------- | ------ | ------ | ----- |
+| Logistic Regression | Baseline      | 0.243  | 0.500  | 0.304 |
+| Random Forest       | Ensemble      | 0.298  | 0.819  | 0.388 |
+| **Gradient Boosting** | **Boosting** | **0.306** | **0.809** | 0.379 |
+| MLP Classifier      | Deep Learning | 0.195  | 0.456  | 0.295 |
 
-Le modèle final retenu est le **Gradient Boosting** (PR-AUC test = 0.306, Recall = 0.809). Le MLP est intentionnellement moins performant — ça démontre que le deep learning n'est pas toujours supérieur sur des données tabulaires.
+Modèle final retenu : **Gradient Boosting** (meilleure PR-AUC test et CV). Seuil opérationnel : 0.447.
 
-### Dashboard décisionnel (Streamlit)
+### Tâches secondaires
 
-Trois onglets :
+Quatre tâches additionnelles entraînées avec 4 modèles chacune (Ridge/LogReg, Random Forest, Gradient Boosting, MLP) + validation croisée + permutation importance :
 
-- **Pilotage** : KPI globaux, comparaison des modèles, importance des variables
-- **Portefeuille** : clients les plus à risque, revenu exposé
+| Tâche | Type | Cible | Meilleur R²/F1 |
+|-------|------|-------|----------------|
+| **Revenu à Risque** | Régression | `monthly_fee × churn_proba` | R² = 0.914 (RF) |
+| **CLV** | Régression | `total_revenue` | R² = 0.9999 (RF) |
+| **Score d'Engagement** | Régression | score pondéré usage | R² ≈ 0 (tous) |
+| **Catégorie d'Engagement** | Classification multi-classe | Faible/Moyen/Fort | F1 macro = 0.32 (MLP) |
+
+**Résultat clé** : l'engagement ne peut pas être prédit à partir du profil/finance/support — c'est un comportement intrinsèque au client.
+
+---
+
+## Dashboard décisionnel (Streamlit)
+
+Quatre onglets :
+
+- **Pilotage** : KPI globaux, comparaison des 4 modèles churn, importance des variables
+- **Portefeuille** : clients les plus à risque, scatter revenu vs probabilité de churn
 - **Simulation** : saisir le profil d'un client et obtenir sa probabilité de churn en temps réel
+- **Tâches secondaires** : comparaison des 4 modèles pour chaque tâche additionnelle + feature importance
 
 ### API REST (FastAPI)
 
 ```
 GET  /health       → état du service + modèle chargé
 GET  /model-info   → métriques du modèle final
-POST /predict      → prédiction pour un client
+POST /predict      → prédiction churn pour un client (JSON in → JSON out)
 ```
 
 ---
@@ -74,14 +90,22 @@ POST /predict      → prédiction pour un client
 ## Structure du projet
 
 ```
-├── retention_ai/       # logique métier (données, features, modèles, inférence)
-├── app/                # dashboard Streamlit
+├── retention_ai/       # logique métier (données, features, modèles, tâches secondaires, inférence)
+│   ├── config.py       # chemins et constantes centralisés
+│   ├── data.py         # chargement et schéma
+│   ├── features.py     # feature engineering (engagement_score, payment_risk_index…)
+│   ├── modeling.py     # 4 modèles de classification churn
+│   ├── extra_tasks.py  # 4 tâches secondaires (3 régressions + 1 classification)
+│   ├── train.py        # pipeline d'entraînement complet
+│   ├── inference.py    # inférence en production
+│   └── reporting.py    # génération des figures
+├── app/                # dashboard Streamlit (4 onglets)
 ├── api/                # API FastAPI
 ├── artifacts/          # modèles entraînés, métriques, figures
+│   └── metrics/secondary/  # résultats des tâches secondaires (CSV)
 ├── data/raw/           # dataset CSV
 ├── docker-compose.yml
 ├── Dockerfile
-├── Makefile
 └── rapport_retention_client.tex / .pdf
 ```
 
@@ -89,18 +113,18 @@ POST /predict      → prédiction pour un client
 
 ## Résultats principaux
 
-- Taux de churn dans le dataset : **10.21%** (classes déséquilibrées → on utilise PR-AUC et Recall)
-- Le Gradient Boosting détecte **80.9%** des churners réels (recall test)
+- Taux de churn dans le dataset : **10.21 %** (classes déséquilibrées → PR-AUC et Recall privilégiés)
+- Le Gradient Boosting détecte **80.9 %** des churners réels (recall test)
 - Sur 10 000 clients scorés : **3 237 clients à risque**, perte mensuelle estimée à **116 441 €**
 - Variables les plus influentes : `tenure_months`, `csat_score`, `monthly_logins`, `payment_failures`
+- Le CLV (total_revenue) est quasi-déterministe depuis les features (R² = 0.9999) — confirmé par la structure du dataset
+- L'engagement comportemental n'est pas prédictible depuis le profil client (R² ≈ 0)
 
 ---
 
 ## Limites identifiées
 
-On a documenté honnêtement les limites dans le rapport :
-
-- **Incohérence CV/test** : le CV utilise le seuil par défaut (0.5), pas le seuil optimisé → les scores CV et test ne sont pas directement comparables
+- **Incohérence CV/test** : le CV utilise le seuil par défaut (0.5), pas le seuil optimisé → scores CV et test non directement comparables
 - **Signal faible** : PR-AUC = 0.306 indique une limite du dataset synthétique, pas du modèle
-- **Pas d'ablation** : on n'a pas quantifié l'impact réel de chaque feature dérivée
+- **Pas d'ablation** : impact réel de chaque feature dérivée non quantifié
 - **Dataset synthétique** : les performances ne garantissent pas un transfert à des données réelles

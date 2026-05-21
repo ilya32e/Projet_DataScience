@@ -28,3 +28,12 @@ OVERVIEW_PATH = ARTIFACTS_DIR / "training_overview.json"
 SCORED_CUSTOMERS_PATH = ARTIFACTS_DIR / "scored_customers.csv"
 FINAL_MODEL_BUNDLE_PATH = MODELS_DIR / "final_model_bundle.joblib"
 
+SECONDARY_METRICS_DIR = METRICS_DIR / "secondary"
+RAR_LEADERBOARD_PATH = SECONDARY_METRICS_DIR / "revenue_at_risk.csv"
+CLV_LEADERBOARD_PATH = SECONDARY_METRICS_DIR / "clv.csv"
+ENG_REG_LEADERBOARD_PATH = SECONDARY_METRICS_DIR / "engagement_regression.csv"
+ENG_CLF_LEADERBOARD_PATH = SECONDARY_METRICS_DIR / "engagement_classification.csv"
+RAR_IMPORTANCE_PATH = SECONDARY_METRICS_DIR / "rar_importance.csv"
+CLV_IMPORTANCE_PATH = SECONDARY_METRICS_DIR / "clv_importance.csv"
+ENG_IMPORTANCE_PATH = SECONDARY_METRICS_DIR / "engagement_importance.csv"
+

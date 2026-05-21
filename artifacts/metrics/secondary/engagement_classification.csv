@@ -1,0 +1,5 @@
+name,label,family,test_accuracy,test_f1_macro,cv_f1_macro_mean,cv_f1_macro_std,cv_accuracy_mean
+mlp_classifier,MLP Classifier,Deep Learning,0.791,0.32267567558365595,0.33028753895684937,0.005820786362438532,0.8191249999999999
+random_forest,Random Forest,Ensemble arbres,0.8785,0.31177357820956436,0.3118444057285486,4.089228715159231e-05,0.878875
+gradient_boosting,Gradient Boosting,Boosting,0.8775,0.31158455392809586,0.3113237304898567,0.00045665233751136385,0.876125
+logistic_regression,Logistic Regression,Baseline interprétable,0.3815,0.24493129665616906,0.24134150823364658,0.005957964388206887,0.384375

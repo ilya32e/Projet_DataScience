@@ -8,6 +8,11 @@ from sklearn.inspection import permutation_importance
 from sklearn.model_selection import train_test_split
 
 from retention_ai.config import (
+    CLV_IMPORTANCE_PATH,
+    CLV_LEADERBOARD_PATH,
+    ENG_CLF_LEADERBOARD_PATH,
+    ENG_IMPORTANCE_PATH,
+    ENG_REG_LEADERBOARD_PATH,
     FEATURE_IMPORTANCE_PATH,
     FIGURES_DIR,
     FINAL_MODEL_BUNDLE_PATH,
@@ -15,14 +20,18 @@ from retention_ai.config import (
     LEADERBOARD_PATH,
     MODELS_DIR,
     OVERVIEW_PATH,
+    RAR_IMPORTANCE_PATH,
+    RAR_LEADERBOARD_PATH,
     RANDOM_STATE,
     SCORED_CUSTOMERS_PATH,
     SCHEMA_PATH,
+    SECONDARY_METRICS_DIR,
     TARGET_COLUMN,
     TEST_SIZE,
     VALIDATION_SIZE,
 )
 from retention_ai.data import build_schema, ensure_directories, load_dataset, save_json
+from retention_ai.extra_tasks import run_all_secondary
 from retention_ai.modeling import (
     build_pipeline,
     choose_threshold,
@@ -189,11 +198,25 @@ def train_all_models() -> dict[str, str]:
     plot_feature_importance(feature_importance, FIGURES_DIR / "feature_importance.png")
     plot_confusion_matrix(final_bundle["metrics"], FIGURES_DIR / "final_confusion_matrix.png")
 
+    SECONDARY_METRICS_DIR.mkdir(parents=True, exist_ok=True)
+    secondary = run_all_secondary(dataset, scored_customers)
+    secondary["revenue_at_risk"].to_csv(RAR_LEADERBOARD_PATH, index=False)
+    secondary["rar_importance"].to_csv(RAR_IMPORTANCE_PATH, index=False)
+    secondary["clv"].to_csv(CLV_LEADERBOARD_PATH, index=False)
+    secondary["clv_importance"].to_csv(CLV_IMPORTANCE_PATH, index=False)
+    secondary["engagement_regression"].to_csv(ENG_REG_LEADERBOARD_PATH, index=False)
+    secondary["engagement_importance"].to_csv(ENG_IMPORTANCE_PATH, index=False)
+    secondary["engagement_classification"].to_csv(ENG_CLF_LEADERBOARD_PATH, index=False)
+
     return {
         "leaderboard": str(LEADERBOARD_PATH),
         "final_model": str(FINAL_MODEL_BUNDLE_PATH),
         "feature_importance": str(FEATURE_IMPORTANCE_PATH),
         "scored_customers": str(SCORED_CUSTOMERS_PATH),
+        "secondary_revenue_at_risk": str(RAR_LEADERBOARD_PATH),
+        "secondary_clv": str(CLV_LEADERBOARD_PATH),
+        "secondary_engagement_regression": str(ENG_REG_LEADERBOARD_PATH),
+        "secondary_engagement_classification": str(ENG_CLF_LEADERBOARD_PATH),
     }
 
 

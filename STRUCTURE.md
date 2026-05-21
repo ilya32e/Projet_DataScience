@@ -40,6 +40,8 @@ retention_ai/
 │
 ├── config.py                      ← Chemins, constantes, hyperparamètres globaux
 │   └── Centralise BASE_DIR, MODELS_DIR, TARGET_COLUMN, CV_FOLDS…
+│       Inclut les chemins pour les artefacts des tâches secondaires
+│       (RAR_LEADERBOARD_PATH, CLV_LEADERBOARD_PATH, ENG_REG/CLF…)
 │       Tous les autres modules importent depuis ici → un seul endroit à modifier
 │
 ├── data.py                        ← Chargement et préparation des données
@@ -47,29 +49,48 @@ retention_ai/
 │       mapping des groupes de features (Profil / Usage / Finance / Support / Marketing)
 │
 ├── features.py                    ← Feature Engineering
-│   └── Transformateur sklearn (fit/transform) qui ajoute 3 features dérivées :
-│       • engagement_score       (combinaison pondérée des métriques d'usage)
-│       • payment_risk_index     (combinaison failures + fee + revenue)
+│   └── Transformateur sklearn (fit/transform) qui ajoute 4 features dérivées :
+│       • engagement_score       (combinaison pondérée des 6 métriques d'usage)
 │       • support_ticket_rate    (tickets ramenés à la durée d'ancienneté)
+│       • revenue_per_month      (revenu cumulé / tenure)
+│       • payment_risk_index     (payment_failures × monthly_fee)
 │
-├── modeling.py                    ← Définition et entraînement des modèles
+├── modeling.py                    ← 4 modèles de classification churn
 │   └── Construit les 4 pipelines sklearn (preprocessing + oversampling + classifieur) :
-│       • GradientBoostingClassifier
-│       • RandomForestClassifier
-│       • LogisticRegression
-│       • MLPClassifier
-│       Inclut l'optimisation du seuil de décision par maximisation du recall
+│       • LogisticRegression    (baseline interprétable)
+│       • RandomForestClassifier (ensemble arbres)
+│       • GradientBoostingClassifier (boosting — modèle final)
+│       • MLPClassifier         (deep learning)
+│       Inclut : validation croisée StratifiedKFold, optimisation du seuil,
+│       permutation importance, sélection automatique du meilleur modèle
+│
+├── extra_tasks.py                 ← 4 tâches prédictives secondaires
+│   └── Chaque tâche utilise 4 modèles + CV + séparation train/test :
+│       • Revenu à Risque (Régression) — cible : monthly_fee × churn_proba
+│         Modèles : Ridge, RandomForestRegressor, GradientBoostingRegressor, MLPRegressor
+│         Résultat : RF R²=0.914 (meilleur)
+│       • CLV — Valeur Vie Client (Régression) — cible : total_revenue
+│         Modèles : mêmes 4 régresseurs
+│         Résultat : RF R²=0.9999 (quasi-déterministe)
+│       • Score d'Engagement (Régression) — cible : engagement_score calculé sur usage
+│         Features : profil + finance + support + marketing (sans colonnes usage)
+│         Résultat : R²≈0 pour tous les modèles — l'engagement est intrinsèque
+│       • Catégorie d'Engagement (Classification multi-classe) — cible : Faible/Moyen/Fort
+│         Modèles : LogReg, RandomForest, GradientBoosting, MLPClassifier
+│         Résultat : F1 Macro ≈ 0.31 (cohérent avec la régression)
 │
 ├── train.py                       ← Script d'entraînement complet (point d'entrée)
 │   └── Orchestre l'ensemble du pipeline :
-│       chargement → features → cross-validation → sélection du meilleur modèle
-│       → sérialisation joblib → scoring du portefeuille → sauvegarde des artefacts
+│       1. chargement → features → 4 modèles churn → sélection finale
+│       2. scoring du portefeuille (churn_probability pour tous les clients)
+│       3. run_all_secondary() → 4 tâches secondaires → sauvegarde CSV
+│       Sortie : artefacts churn + artifacts/metrics/secondary/*.csv
 │
 ├── inference.py                   ← Inférence en production
-│   └── Charge le modèle sérialisé et expose predict_one() / predict_batch()
+│   └── Charge le modèle sérialisé et expose predict_record()
 │       utilisé par l'API FastAPI et le dashboard Streamlit
 │
-├── reporting.py                   ← Génération des figures et rapports
+├── reporting.py                   ← Génération des figures
 │   └── Produit les graphiques sauvegardés dans artifacts/figures/ :
 │       class_balance, contract_churn_rate, model_comparison,
 │       final_confusion_matrix, feature_importance
@@ -105,20 +126,28 @@ retention_ai/
 
 ```
 app/
-└── streamlit_app.py               ← Application Streamlit complète (3 onglets)
+└── streamlit_app.py               ← Application Streamlit complète (4 onglets)
     │
     ├── Onglet Pilotage
     │   └── KPI globaux (taux de churn, revenu exposé, nb clients à risque)
-    │       + tableau de comparaison des modèles
+    │       + tableau de comparaison des 4 modèles churn
+    │       + graphique de permutation importance
     │
     ├── Onglet Portefeuille
-    │   └── Tableau interactif des clients scorés (filtres, tri, export)
-    │       avec probabilité de churn et revenu mensuel exposé par client
+    │   └── Scatter plot risque/revenu par client (Faible / Modéré / Critique)
+    │       + top 12 clients par revenu à risque
     │
-    └── Onglet Simulation
-        └── Formulaire de saisie d'un profil client (32 champs groupés)
-            + bouton "Lancer la prédiction" → appel inference.py
-            → affichage jauge de probabilité, niveau de risque, revenu exposé
+    ├── Onglet Simulation
+    │   └── Formulaire de saisie d'un profil client (32 champs groupés)
+    │       + bouton "Lancer la prédiction" → appel inference.py ou API REST
+    │       → affichage jauge de probabilité, niveau de risque, action recommandée
+    │
+    └── Onglet Tâches secondaires
+        └── Selectbox pour choisir parmi les 4 tâches secondaires :
+            • Revenu à Risque : bar chart R²/CV R² + tableau métriques + feature importance
+            • CLV             : idem
+            • Score d'Engagement (Régression) : idem
+            • Catégorie d'Engagement (Classification) : bar chart F1/CV F1 + tableau
 ```
 
 ---
@@ -132,7 +161,7 @@ api/
 │   ├── GET  /model-info           → Métriques et métadonnées du modèle déployé
 │   └── POST /predict              → Scoring d'un client (JSON in → JSON out)
 │       Entrée : profil client (32 champs)
-│       Sortie : churn_probability, risk_level, expected_monthly_loss
+│       Sortie : churn_probability, risk_level, expected_monthly_loss, recommended_action
 │
 └── static/
     └── swagger-dark.css           ← Thème sombre pour la documentation Swagger UI
@@ -162,32 +191,39 @@ artifacts/
 │
 ├── models/                        ← Modèles sérialisés (joblib)
 │   ├── final_model_bundle.joblib          ← Gradient Boosting — modèle en production
-│   ├── gradient_boosting_bundle.joblib    ← même modèle (sauvegarde nommée)
-│   ├── random_forest_bundle.joblib        ← Random Forest entraîné
-│   ├── logistic_regression_bundle.joblib  ← Régression Logistique entraînée
-│   └── mlp_classifier_bundle.joblib       ← MLP entraîné
-│       Chaque bundle contient : pipeline sklearn + seuil optimal + métadonnées
+│   ├── gradient_boosting_bundle.joblib
+│   ├── random_forest_bundle.joblib
+│   ├── logistic_regression_bundle.joblib
+│   └── mlp_classifier_bundle.joblib
+│       Chaque bundle : pipeline sklearn + seuil optimal + métadonnées
 │
 ├── metrics/                       ← Métriques de performance (CSV)
-│   ├── model_comparison.csv       ← Tableau comparatif des 4 modèles
-│   │   Colonnes : ROC-AUC, PR-AUC, recall, precision, F1, confusion matrix…
-│   └── feature_importance.csv     ← Permutation importance par feature
-│       Colonnes : feature, importance_mean, importance_std
+│   ├── model_comparison.csv       ← Tableau comparatif des 4 modèles churn
+│   ├── feature_importance.csv     ← Permutation importance du modèle final churn
+│   │
+│   └── secondary/                 ← Résultats des tâches secondaires
+│       ├── revenue_at_risk.csv    ← Comparaison 4 régresseurs (RMSE, MAE, R², CV)
+│       ├── rar_importance.csv     ← Feature importance — Revenu à Risque
+│       ├── clv.csv                ← Comparaison 4 régresseurs CLV
+│       ├── clv_importance.csv     ← Feature importance — CLV
+│       ├── engagement_regression.csv   ← Comparaison 4 régresseurs engagement
+│       ├── engagement_importance.csv   ← Feature importance — Engagement
+│       └── engagement_classification.csv ← Comparaison 4 classifieurs engagement
 │
 ├── figures/                       ← Graphiques générés (PNG)
-│   ├── class_balance.png                    ← Distribution churn / non-churn
-│   ├── contract_churn_rate.png              ← Taux de churn par type de contrat
-│   ├── model_comparison.png                 ← Barplot comparatif des modèles
-│   ├── final_confusion_matrix.png           ← Matrice de confusion du modèle final
-│   ├── feature_importance.png               ← Graphique de permutation importance
-│   ├── screenshot_dashboard_pilotage.png    ← Capture onglet Pilotage
-│   ├── screenshot_dashboard_portefeuille.png← Capture onglet Portefeuille
-│   ├── screenshot_dashboard_simulation.png  ← Capture onglet Simulation (résultat)
-│   └── screenshot_api_docs.png              ← Capture Swagger UI FastAPI
+│   ├── class_balance.png
+│   ├── contract_churn_rate.png
+│   ├── model_comparison.png
+│   ├── final_confusion_matrix.png
+│   ├── feature_importance.png
+│   ├── screenshot_dashboard_pilotage.png
+│   ├── screenshot_dashboard_portefeuille.png
+│   ├── screenshot_dashboard_simulation.png
+│   └── screenshot_api_docs.png
 │
 ├── scored_customers.csv           ← Scoring complet du portefeuille
-│   Chaque ligne = 1 client avec : churn_probability, risk_level,
-│   expected_monthly_loss, expected_revenue_loss
+│   Chaque ligne = 1 client avec : churn_probability, predicted_churn,
+│   expected_monthly_loss, expected_revenue_at_risk
 │
 ├── training_overview.json         ← Résumé de l'entraînement
 │   Contient : date, taille du dataset, modèle final, métriques clés,
@@ -195,7 +231,7 @@ artifacts/
 │
 └── schema.json                    ← Schéma du dataset
     Contient les types de chaque feature, les groupes (Profil/Usage/…),
-    utilisé par l'API pour valider les requêtes entrantes
+    utilisé par le dashboard et l'API pour valider les données
 ```
 
 ---
@@ -218,18 +254,11 @@ requirements.txt                   ← Toutes les dépendances Python du projet
     streamlit, fastapi, uvicorn, joblib, plotly, optuna, shap…
 
 Makefile                           ← Raccourcis de commandes
-    make train     → lance le pipeline d'entraînement
+    make train     → lance le pipeline d'entraînement complet
     make app       → démarre Streamlit en local
     make api       → démarre FastAPI en local
     make docker    → build + up docker-compose
     make clean     → supprime les artefacts générés
-
-.streamlit/config.toml             ← Configuration Streamlit
-    Thème sombre, port, options d'affichage
-
-.dockerignore                      ← Fichiers exclus du build Docker (.venv, __pycache__…)
-.gitignore                         ← Fichiers exclus du dépôt Git
-.env.example                       ← Variables d'environnement à définir (template)
 ```
 
 ---
@@ -238,74 +267,52 @@ Makefile                           ← Raccourcis de commandes
 
 ```
 README.md                          ← Documentation principale du projet
-    Installation, lancement, description des fonctionnalités, architecture
-
-rapport_retention_client.tex       ← Rapport académique complet (LaTeX, ~33 pages)
-rapport_retention_client.pdf       ← Version compilée du rapport
-rapport_retention_client.aux/.log/.toc/.out  ← Fichiers intermédiaires LaTeX (ignorables)
-
-presentation_retention_client.pptx ← Présentation PowerPoint 11 diapositives
-    Titre, Données, Méthodologie, Comparaison modèles, Performance,
-    Features, Dashboard, API, Portfolio, Conclusion, Démo live
-
-script_presentation_retention_client.docx ← Script de présentation (Word)
-    Texte mot-à-mot pour chaque diapositive + durées + conseils
-
-MATRICE_CONFORMITE_RNCP.md         ← Grille de conformité RNCP (certification)
-    Mapping compétences visées ↔ livrables du projet
-
-Projet M1 DE Sujet 2 (...).pdf     ← Sujet original du projet
+rapport_retention_client.tex       ← Rapport académique complet (LaTeX)
+rapport_retention_client.pdf       ← Version compilée
+presentation_retention_client.pptx ← Présentation PowerPoint
+script_presentation_retention_client.docx ← Script de présentation
+STRUCTURE.md                       ← Ce fichier
 ```
 
 ---
 
-## 8. Scripts utilitaires (racine)
-
-```
-simulate.py                        ← Automation Playwright pour la démo Simulation
-    Remplit le formulaire Streamlit avec un profil client à haut risque,
-    soumet la prédiction et capture le screenshot du résultat
-    (utilisé pour générer screenshot_dashboard_simulation.png)
-
-debug_vis.py                       ← Script de debug DOM / CSS (développement uniquement)
-    Inspecte les éléments Streamlit dans le navigateur headless pour
-    diagnostiquer les problèmes de sélecteurs CSS
-
-generate_ppt.py                    ← Script de génération du fichier .pptx
-    Construit presentation_retention_client.pptx via python-pptx
-
-generate_script.py                 ← Script de génération du script Word
-    Construit script_presentation_retention_client.docx via python-docx
-```
-
----
-
-## Flux de données simplifié
+## Flux de données
 
 ```
 data/raw/customer_churn_business_dataset.csv
         │
         ▼
-retention_ai/data.py          ← chargement + split train/test
+retention_ai/data.py          ← chargement + split train/test/validation
         │
         ▼
-retention_ai/features.py      ← feature engineering (3 features dérivées)
+retention_ai/features.py      ← feature engineering (4 features dérivées)
         │
         ▼
-retention_ai/modeling.py      ← entraînement 4 modèles + optimisation seuil
+retention_ai/modeling.py      ← 4 modèles churn + optimisation seuil + CV
         │
         ▼
 retention_ai/train.py         ← sérialisation + scoring portefeuille
         │
-        ├──► artifacts/models/          (modèles .joblib)
-        ├──► artifacts/metrics/         (CSV de performance)
-        ├──► artifacts/figures/         (graphiques PNG)
-        ├──► artifacts/scored_customers.csv
-        └──► artifacts/training_overview.json
+        ├──► artifacts/models/                    (bundles .joblib)
+        ├──► artifacts/metrics/model_comparison.csv
+        ├──► artifacts/metrics/feature_importance.csv
+        ├──► artifacts/figures/                   (PNG)
+        ├──► artifacts/scored_customers.csv       (churn_probability par client)
+        │
+        ▼
+retention_ai/extra_tasks.py   ← 4 tâches secondaires (dépend de scored_customers)
+        │
+        ├──► artifacts/metrics/secondary/revenue_at_risk.csv
+        ├──► artifacts/metrics/secondary/rar_importance.csv
+        ├──► artifacts/metrics/secondary/clv.csv
+        ├──► artifacts/metrics/secondary/clv_importance.csv
+        ├──► artifacts/metrics/secondary/engagement_regression.csv
+        ├──► artifacts/metrics/secondary/engagement_importance.csv
+        └──► artifacts/metrics/secondary/engagement_classification.csv
                     │
         ┌───────────┴───────────┐
         ▼                       ▼
 app/streamlit_app.py      api/main.py
 (port 8501)               (port 8000)
-Dashboard interactif      API REST /predict
+4 onglets dashboard       POST /predict → inference.py
 ```

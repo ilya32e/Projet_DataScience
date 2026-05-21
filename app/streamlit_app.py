@@ -8,7 +8,18 @@ import plotly.graph_objects as go
 import requests
 import streamlit as st
 
-from retention_ai.config import FEATURE_IMPORTANCE_PATH, OVERVIEW_PATH, SCORED_CUSTOMERS_PATH
+from retention_ai.config import (
+    CLV_IMPORTANCE_PATH,
+    CLV_LEADERBOARD_PATH,
+    ENG_CLF_LEADERBOARD_PATH,
+    ENG_IMPORTANCE_PATH,
+    ENG_REG_LEADERBOARD_PATH,
+    FEATURE_IMPORTANCE_PATH,
+    OVERVIEW_PATH,
+    RAR_IMPORTANCE_PATH,
+    RAR_LEADERBOARD_PATH,
+    SCORED_CUSTOMERS_PATH,
+)
 from retention_ai.data import load_json
 from retention_ai.inference import available_models, load_leaderboard, load_schema, predict_record
 
@@ -46,6 +57,22 @@ def get_scored_customers() -> pd.DataFrame:
 @st.cache_data
 def get_overview() -> dict[str, Any]:
     return load_json(OVERVIEW_PATH)
+
+
+@st.cache_data
+def get_secondary() -> dict[str, pd.DataFrame] | None:
+    try:
+        return {
+            "revenue_at_risk": pd.read_csv(RAR_LEADERBOARD_PATH),
+            "rar_importance": pd.read_csv(RAR_IMPORTANCE_PATH),
+            "clv": pd.read_csv(CLV_LEADERBOARD_PATH),
+            "clv_importance": pd.read_csv(CLV_IMPORTANCE_PATH),
+            "engagement_regression": pd.read_csv(ENG_REG_LEADERBOARD_PATH),
+            "engagement_importance": pd.read_csv(ENG_IMPORTANCE_PATH),
+            "engagement_classification": pd.read_csv(ENG_CLF_LEADERBOARD_PATH),
+        }
+    except FileNotFoundError:
+        return None
 
 
 def apply_theme() -> None:
@@ -343,16 +370,33 @@ def render_feature_zone(feature_importance: pd.DataFrame) -> None:
     st.plotly_chart(fig, use_container_width=True)
 
 
-def build_record_from_form(schema: dict[str, Any]) -> dict[str, Any]:
+COUNTRY_CITY_MAP: dict[str, str] = {
+    "Australia": "Sydney",
+    "Bangladesh": "Dhaka",
+    "Canada": "Toronto",
+    "Germany": "Berlin",
+    "India": "Delhi",
+    "UK": "London",
+    "USA": "New York",
+}
+
+
+def build_record_from_form(
+    schema: dict[str, Any], exclude: set[str] | None = None
+) -> dict[str, Any]:
     defaults = schema["default_values"]
     groups = schema["field_groups"]
     numeric_details = schema["numeric_details"]
+    exclude = exclude or set()
     record: dict[str, Any] = {}
 
     for group_name, columns in groups.items():
+        visible = [c for c in columns if c not in exclude]
+        if not visible:
+            continue
         with st.expander(group_name, expanded=group_name in {"Profil", "Usage", "Finance"}):
             left, right = st.columns(2)
-            for index, column in enumerate(columns):
+            for index, column in enumerate(visible):
                 target = left if index % 2 == 0 else right
                 with target:
                     if column in schema["categorical_columns"]:
@@ -418,14 +462,31 @@ def render_prediction_zone(schema: dict[str, Any]) -> None:
     model_options = available_models()
     selected_model = st.sidebar.selectbox("Modèle de scoring", options=model_options, index=0)
 
+    # Country/city sélectionnés hors du formulaire pour permettre la réactivité
+    countries = schema["categorical_options"].get("country", list(COUNTRY_CITY_MAP.keys()))
+    default_country = schema["default_values"].get("country", countries[0])
+    default_idx = countries.index(str(default_country)) if str(default_country) in countries else 0
+
+    with st.expander("Localisation", expanded=True):
+        col_country, col_city = st.columns(2)
+        with col_country:
+            selected_country = st.selectbox("Country", options=countries, index=default_idx, key="loc_country")
+        with col_city:
+            city = COUNTRY_CITY_MAP.get(selected_country, selected_country)
+            st.text_input("City", value=city, disabled=True)
+
     with st.form("simulation_form"):
-        record = build_record_from_form(schema)
+        record = build_record_from_form(schema, exclude={"country", "city"})
         submitted = st.form_submit_button("Lancer la prédiction", type="primary")
+
+    if submitted:
+        record["country"] = selected_country
+        record["city"] = city
 
     if not submitted:
         return
 
-    result = request_prediction(sidebar_mode, api_url, record, selected_model)
+    result = request_prediction(sidebar_mode, api_url, record, selected_model)  # type: ignore[possibly-undefined]
     probability = float(result["churn_probability"])
 
     gauge = go.Figure(
@@ -475,6 +536,105 @@ def render_prediction_zone(schema: dict[str, Any]) -> None:
     )
 
 
+def render_regression_leaderboard(leaderboard: pd.DataFrame) -> None:
+    col_map = {
+        "label": "Modèle", "family": "Famille",
+        "test_rmse": "RMSE", "test_mae": "MAE", "test_r2": "R²",
+        "cv_rmse_mean": "CV RMSE", "cv_r2_mean": "CV R²",
+    }
+    chart_df = leaderboard[["label", "test_r2", "cv_r2_mean"]].melt(
+        id_vars="label", var_name="metric", value_name="score"
+    )
+    chart_df["metric"] = chart_df["metric"].map({"test_r2": "R² test", "cv_r2_mean": "R² CV"})
+    fig = px.bar(chart_df, x="label", y="score", color="metric", barmode="group",
+                 color_discrete_sequence=["#4cc9f0", "#ff7b72"])
+    apply_plotly_theme(fig)
+    fig.update_layout(height=340, legend_title="", margin=dict(l=10, r=10, t=20, b=10))
+    st.plotly_chart(fig, use_container_width=True)
+    cols = [c for c in col_map if c in leaderboard.columns]
+    st.dataframe(leaderboard[cols].rename(columns=col_map).round(4),
+                 use_container_width=True, hide_index=True)
+
+
+def render_classification_leaderboard(leaderboard: pd.DataFrame) -> None:
+    col_map = {
+        "label": "Modèle", "family": "Famille",
+        "test_accuracy": "Accuracy", "test_f1_macro": "F1 Macro",
+        "cv_f1_macro_mean": "CV F1 Macro", "cv_accuracy_mean": "CV Accuracy",
+    }
+    chart_df = leaderboard[["label", "test_f1_macro", "cv_f1_macro_mean"]].melt(
+        id_vars="label", var_name="metric", value_name="score"
+    )
+    chart_df["metric"] = chart_df["metric"].map(
+        {"test_f1_macro": "F1 Macro test", "cv_f1_macro_mean": "F1 Macro CV"}
+    )
+    fig = px.bar(chart_df, x="label", y="score", color="metric", barmode="group",
+                 color_discrete_sequence=["#4cc9f0", "#ff7b72"])
+    apply_plotly_theme(fig)
+    fig.update_layout(height=340, legend_title="", margin=dict(l=10, r=10, t=20, b=10))
+    st.plotly_chart(fig, use_container_width=True)
+    cols = [c for c in col_map if c in leaderboard.columns]
+    st.dataframe(leaderboard[cols].rename(columns=col_map).round(4),
+                 use_container_width=True, hide_index=True)
+
+
+def render_importance_chart(importance: pd.DataFrame) -> None:
+    top = importance.head(10).sort_values("importance_mean")
+    fig = px.bar(top, x="importance_mean", y="feature", orientation="h",
+                 color="importance_mean",
+                 color_continuous_scale=["#4cc9f0", "#256f8f", "#ff7b72"])
+    apply_plotly_theme(fig)
+    fig.update_layout(height=360, coloraxis_showscale=False,
+                      margin=dict(l=10, r=10, t=20, b=10))
+    st.plotly_chart(fig, use_container_width=True)
+
+
+def render_secondary_zone(secondary: dict[str, pd.DataFrame]) -> None:
+    TASKS = {
+        "Revenu à Risque (Régression)": {
+            "lb_key": "revenue_at_risk",
+            "imp_key": "rar_importance",
+            "type": "regression",
+            "description": "Cible : `expected_monthly_loss = monthly_fee × churn_probability`  \n"
+                           "Features : toutes (profil, usage, finance, support, marketing).",
+        },
+        "CLV — Valeur Vie Client (Régression)": {
+            "lb_key": "clv",
+            "imp_key": "clv_importance",
+            "type": "regression",
+            "description": "Cible : `total_revenue` (revenu cumulé du client)  \n"
+                           "Features : toutes sauf `total_revenue` (retirée pour éviter la fuite).",
+        },
+        "Score d'Engagement (Régression)": {
+            "lb_key": "engagement_regression",
+            "imp_key": "engagement_importance",
+            "type": "regression",
+            "description": "Cible : `engagement_score` (formule pondérée sur les 6 colonnes d'usage)  \n"
+                           "Features : profil + finance + support + marketing (sans les colonnes d'usage).",
+        },
+        "Catégorie d'Engagement (Classification)": {
+            "lb_key": "engagement_classification",
+            "imp_key": None,
+            "type": "classification",
+            "description": "Cible : Faible / Moyen / Fort selon l'engagement_score  \n"
+                           "Features : mêmes que la régression d'engagement.",
+        },
+    }
+
+    selected = st.selectbox("Tâche prédictive", list(TASKS.keys()))
+    task = TASKS[selected]
+    st.caption(task["description"])
+
+    lb = secondary[task["lb_key"]]
+    if task["type"] == "regression":
+        render_regression_leaderboard(lb)
+        if task["imp_key"]:
+            st.subheader("Variables les plus influentes (meilleur modèle)")
+            render_importance_chart(secondary[task["imp_key"]])
+    else:
+        render_classification_leaderboard(lb)
+
+
 def main() -> None:
     apply_theme()
 
@@ -488,10 +648,12 @@ def main() -> None:
         st.error("Les artefacts sont absents. Lance d'abord `python -m retention_ai.train`.")
         st.stop()
 
+    secondary = get_secondary()
+
     render_header(overview)
     render_kpis(scored)
 
-    tab1, tab2, tab3 = st.tabs(["Pilotage", "Portefeuille", "Simulation"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Pilotage", "Portefeuille", "Simulation", "Tâches secondaires"])
     with tab1:
         render_model_zone(leaderboard)
         render_feature_zone(feature_importance)
@@ -499,6 +661,13 @@ def main() -> None:
         render_portfolio_zone(scored)
     with tab3:
         render_prediction_zone(schema)
+    with tab4:
+        st.subheader("Tâches Prédictives Secondaires")
+        if secondary is None:
+            st.info("Les tâches secondaires ne sont pas encore entraînées. "
+                    "Lance `python -m retention_ai.train` pour les générer.")
+        else:
+            render_secondary_zone(secondary)
 
 
 if __name__ == "__main__":
